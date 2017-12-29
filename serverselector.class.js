@@ -7,34 +7,41 @@ var ServerSelector = function (options) {
         servers: [],
         remoteFile: 'latency.png'
     };
+    this.testqueue = [];
     this.results = [];
     var construct = function (options) {
         Object.assign(root.vars, options);
         root.vars.cacheControl = new Date().getTime();
-        startTesting();
-    };
-    var startTesting = function () {
-        var promises = [];
-        [0, 1, 2].forEach(function (retest) {
-            root.vars.servers.forEach(function (server, i) {
-                if (!root.results[i]) {
-                    root.results[i] = [];
-                }
-                promises.push(
-                        root.testServer(server)
-                        .then(function (latency) {
-                            root.results[i].push(latency);
-                        })
-                        .then(function () {
-                            if (typeof root.vars.percent === 'function') {
-                                root.vars.percent(calcPercent());
-                            }
-                        })
-                );
+        [0, 1, 2].forEach(function (server) {
+            root.vars.servers.forEach(function (address) {
+                root.testqueue.push(address);
             });
         });
-        Promise.all(promises).then(function () {
+        root.doTest();
+    };
+    this.doTest = function () {
+        if (root.testqueue.length) {
+            var address = root.testqueue.shift();
+            var index = root.vars.servers.indexOf(address);
+            if (!root.results[index]) {
+                root.results[index] = [];
+            }
+            root.testServer(address)
+                    .then(function (latency) {
+                        root.results[index].push(latency);
+                    })
+                    .then(function () {
+                        if (typeof root.vars.percent === 'function') {
+                            root.vars.percent(calcPercent());
+                        }
+                    })
+                    .then(function () {
+                        root.doTest();
+                    });
+
+        } else {
             if (typeof root.vars.result === 'function') {
+                console.table(root.results);
                 var result = [];
                 root.results.forEach(function (resultset, i) {
                     resultset.sort();
@@ -42,10 +49,10 @@ var ServerSelector = function (options) {
                 });
                 root.vars.result(result.indexOf(Math.min.apply(Math, result)));
             }
-        })
+        }
     };
-    var calcPercent = function() {
-        return Math.floor((arrayLength(root.results) / (root.vars.servers.length * 3))*100);
+    var calcPercent = function () {
+        return Math.floor((arrayLength(root.results) / (root.vars.servers.length * 3)) * 100);
     };
     var arrayLength = function (a) {
         var na = flatten(a);
@@ -59,10 +66,11 @@ var ServerSelector = function (options) {
     this.testServer = function (server) {
         return new Promise(function (resolve, reject) {
             var startTime = new Date();
-            root.get(root.vars.protocol + '://' + server + '/' + root.vars.remoteFile + '?' + startTime.getTime()+startTime.getMilliseconds()).then(function () {
-                var endTime = new Date();
-                resolve(timeDiff(startTime, endTime));
-            })
+            root.get(root.vars.protocol + '://' + server + '/' + root.vars.remoteFile + '?' + startTime.getTime() + startTime.getMilliseconds())
+                    .then(function () {
+                        var endTime = new Date();
+                        resolve(timeDiff(startTime, endTime));
+                    });
         });
     };
     this.get = function (url) {
