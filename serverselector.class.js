@@ -17,16 +17,16 @@ var ServerSelector = function (options) {
                 root.testqueue.push(address);
             });
         });
-        root.doTest();
+        doTest();
     };
-    this.doTest = function () {
+    var doTest = function () {
         if (root.testqueue.length) {
             var address = root.testqueue.shift();
             var index = root.vars.servers.indexOf(address);
             if (!root.results[index]) {
                 root.results[index] = [];
             }
-            root.testServer(address)
+            testServer(address)
                     .then(function (latency) {
                         root.results[index].push(latency);
                     })
@@ -36,12 +36,10 @@ var ServerSelector = function (options) {
                         }
                     })
                     .then(function () {
-                        root.doTest();
+                        doTest();
                     });
-
         } else {
             if (typeof root.vars.result === 'function') {
-                console.table(root.results);
                 var result = [];
                 root.results.forEach(function (resultset, i) {
                     resultset.sort();
@@ -63,17 +61,17 @@ var ServerSelector = function (options) {
             return flat.concat(Array.isArray(toFlatten) ? flatten(toFlatten) : toFlatten);
         }, []);
     };
-    this.testServer = function (server) {
+    var testServer = function (server) {
         return new Promise(function (resolve, reject) {
             var startTime = new Date();
-            root.get(root.vars.protocol + '://' + server + '/' + root.vars.remoteFile + '?' + startTime.getTime() + startTime.getMilliseconds())
+            get(root.vars.protocol + '://' + server + '/' + root.vars.remoteFile + '?' + startTime.getTime() + startTime.getMilliseconds())
                     .then(function () {
                         var endTime = new Date();
                         resolve(timeDiff(startTime, endTime));
                     });
         });
     };
-    this.get = function (url) {
+    var get = function (url) {
         return new Promise(function (resolve, reject) {
             var req = new XMLHttpRequest();
             req.open('GET', url);
